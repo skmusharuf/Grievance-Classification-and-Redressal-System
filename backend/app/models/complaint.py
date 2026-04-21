@@ -4,23 +4,28 @@ from datetime import datetime, timedelta
 from app.models.database import get_db_connection
 from app.utils.helpers import generate_complaint_id, generate_otp
 
-def submit_complaint(name, email, phone, aadhar, description, full_address, area_id, zone_id, circle_id, locality_name, category, criticality):
-    """Submit a new complaint to database"""
+def submit_complaint(name, email, phone, aadhar, description, full_address, area_id, zone_id, circle_id, locality_name, category, criticality, latitude=None, longitude=None, location_accuracy=None, location_address=None):
+    """Submit a new complaint to database with optional location data"""
     complaint_id = generate_complaint_id()
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    location_timestamp = datetime.now().isoformat() if latitude and longitude else None
+    
     cursor.execute('''
         INSERT INTO complaints (
             complaint_id, name, email, phone, aadhar, description,
             full_address, area_id, zone_id, circle_id, locality_name,
-            category, criticality, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?)
+            category, criticality, status, created_at, updated_at,
+            latitude, longitude, location_accuracy, location_address, location_timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?,
+                  ?, ?, ?, ?, ?)
     ''', (
         complaint_id, name, email, phone, aadhar, description,
         full_address, area_id, zone_id, circle_id, locality_name,
-        category, criticality, datetime.now().isoformat(), datetime.now().isoformat()
+        category, criticality, datetime.now().isoformat(), datetime.now().isoformat(),
+        latitude, longitude, location_accuracy, location_address, location_timestamp
     ))
     
     complaint_db_id = cursor.lastrowid
@@ -196,3 +201,56 @@ def update_complaint_status(complaint_id, complaint_db_id, new_status, admin_id,
     conn.close()
     
     return old_status
+
+def get_complaints_with_locations(zone_id=None, circle_id=None, status=None):
+    """Get all complaints with location data for map display"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT c.complaint_id, c.id, c.name, c.email, c.phone, c.description,
+               c.category, c.criticality, c.status, c.latitude, c.longitude,
+               c.location_accuracy, c.location_address, c.created_at,
+               z.zone_name, ci.circle_name
+        FROM complaints c
+        LEFT JOIN zones z ON z.id = c.zone_id
+        LEFT JOIN circles ci ON ci.id = c.circle_id
+        WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL
+    '''
+    params = []
+    
+    if zone_id:
+        query += ' AND c.zone_id = ?'
+        params.append(zone_id)
+    
+    if circle_id:
+        query += ' AND c.circle_id = ?'
+        params.append(circle_id)
+    
+    if status:
+        query += ' AND c.status = ?'
+        params.append(status)
+    
+    query += ' ORDER BY c.created_at DESC'
+    
+    cursor.execute(query, params)
+    
+    complaints = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return complaints
+
+def update_complaint_location(complaint_id, latitude, longitude, location_accuracy, location_address):
+    """Update complaint location data"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE complaints
+        SET latitude = ?, longitude = ?, location_accuracy = ?,
+            location_address = ?, location_timestamp = ?
+        WHERE complaint_id = ?
+    ''', (latitude, longitude, location_accuracy, location_address, datetime.now().isoformat(), complaint_id))
+    
+    conn.commit()
+    conn.close()

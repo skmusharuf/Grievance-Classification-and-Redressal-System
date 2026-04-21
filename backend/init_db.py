@@ -116,6 +116,11 @@ def init_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             resolved_at TIMESTAMP,
+            latitude REAL,
+            longitude REAL,
+            location_accuracy REAL,
+            location_address TEXT,
+            location_timestamp TIMESTAMP,
             FOREIGN KEY (area_id) REFERENCES areas(id),
             FOREIGN KEY (zone_id) REFERENCES zones(id),
             FOREIGN KEY (circle_id) REFERENCES circles(id),
@@ -206,6 +211,58 @@ def init_database():
         )
     ''')
     
+    # ====================
+    # AUDIT LOGS TABLE
+    # ====================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id INTEGER,
+            action TEXT NOT NULL,
+            target_type TEXT,
+            target_id TEXT,
+            details TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (admin_id) REFERENCES admins(id)
+        )
+    ''')
+    
+    # Create index for audit log searches
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_admin ON audit_logs(admin_id)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)
+    ''')
+    
+    # ====================
+    # FILE UPLOADS TABLE
+    # ====================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS file_uploads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            complaint_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER,
+            file_type TEXT,
+            uploaded_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (complaint_id) REFERENCES complaints(id),
+            FOREIGN KEY (uploaded_by) REFERENCES admins(id)
+        )
+    ''')
+    
+    # Create index for file lookups
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_files_complaint ON file_uploads(complaint_id)
+    ''')
+    
     # Commit changes
     conn.commit()
     
@@ -218,11 +275,13 @@ def init_database():
     print("  - circles (60 circles)")
     print("  - areas (300 wards/localities)")
     print("  - admins (super_admin, sub_admin, department_admin)")
-    print("  - complaints")
+    print("  - complaints (with location fields)")
     print("  - complaint_status_history")
     print("  - otp_storage")
     print("  - admin_sessions")
     print("  - email_notifications")
+    print("  - audit_logs (for tracking admin actions)")
+    print("  - file_uploads (for complaint attachments)")
     print("=" * 50)
     
     conn.close()
@@ -243,7 +302,7 @@ def check_database():
     required_tables = [
         'zones', 'circles', 'areas', 'admins', 'complaints',
         'complaint_status_history', 'otp_storage', 'admin_sessions',
-        'email_notifications'
+        'email_notifications', 'audit_logs', 'file_uploads'
     ]
     
     conn.close()
