@@ -17,9 +17,8 @@ EMAIL_USER = os.getenv('EMAIL_USER', '')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
 EMAIL_FROM = os.getenv('EMAIL_FROM', EMAIL_USER)
 
-# AI/ML Configuration
-MODEL_NAME = "gemini-2.5-flash"
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+# ML Classification Configuration
+CLASSIFICATION_MODEL = "Naive Bayes"  # Trained locally for fast inference
 
 # Constants
 VALID_STATUSES = ['Pending', 'In Progress', 'Resolved']
@@ -35,39 +34,14 @@ DEPARTMENTS = [
     "General"
 ]
 
-GEMINI_PROMPT = """
-You are an intelligent grievance classification assistant for a citizen complaint management system.
+# Cache Configuration (Redis-compatible)
+CACHE_ENABLED = os.getenv('CACHE_ENABLED', 'true').lower() == 'true'
+CACHE_TTL = int(os.getenv('CACHE_TTL', '3600'))  # 1 hour default
 
-You will receive a text complaint written in English (sometimes with small grammar or spelling errors).
-
-Your tasks:
-1. Identify the correct department that should handle it. Choose ONLY from:
-   - CM Office (Miscellaneous)
-   - Development Authority
-   - Municipal
-   - Police
-   - Public Works Department
-   - Transport
-2. Determine whether the complaint is **Critical** or **Non-Critical**.
-   - Critical means urgent or safety-related (accidents, fires, injuries, harassment, violence, death, etc.).
-   - Non-Critical means routine issues (garbage, water, road maintenance, paperwork delays, etc.).
-3. Return ONLY valid JSON in this exact format:
-{
-  "department": "<one of the 6 departments>",
-  "criticality": "<Critical or Non-Critical>",
-  "confidence_reason": "<short reason for your decision>"
-}
-
-If the input is unclear, meaningless, or too short to classify, return:
-{
-  "department": "Invalid",
-  "criticality": "None",
-  "confidence_reason": "Complaint not clear or incomplete"
-}
-
-Now classify the following complaint:
-<<<USER_COMPLAINT>>>
-"""
+# Rate Limiting
+RATE_LIMIT_ENABLED = os.getenv('RATE_LIMIT_ENABLED', 'true').lower() == 'true'
+RATE_LIMIT_REQUESTS = int(os.getenv('RATE_LIMIT_REQUESTS', '100'))  # requests per window
+RATE_LIMIT_WINDOW = int(os.getenv('RATE_LIMIT_WINDOW', '3600'))  # seconds
 
 # Print email configuration on startup
 def log_email_config():

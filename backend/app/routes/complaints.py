@@ -8,7 +8,7 @@ from app.models.complaint import (
 )
 from app.models.database import get_db_connection
 from app.models.otp import verify_tracking_otp
-from app.services.classification import classify_complaint_gemini
+from app.services.classification import classify_complaint
 from app.services.translation import translate_to_english
 from app.services.email_service import send_email
 from app.config import EMAIL_USER, EMAIL_PASSWORD
@@ -65,9 +65,9 @@ def submit_complaint_route():
             
             conn.close()
         
-        # Classify using Gemini
-        print(f"[v0] Classifying complaint using Gemini...")
-        category, criticality = classify_complaint_gemini(description)
+        # Classify using trained ML model
+        print(f"[v0] Classifying complaint using ML model...")
+        category, criticality = classify_complaint(description)
         
         # Submit complaint
         complaint_id, otp = submit_complaint(

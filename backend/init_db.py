@@ -22,15 +22,46 @@ def init_database():
     cursor.execute("PRAGMA foreign_keys = ON;")
     
     # ====================
+    # CITIES TABLE (Multi-city support)
+    # ====================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            city_code TEXT UNIQUE NOT NULL,
+            city_name TEXT NOT NULL,
+            state TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create index for city lookup
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_cities_code ON cities(city_code)
+    ''')
+    
+    # ====================
     # ZONES TABLE
     # ====================
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS zones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            zone_number INTEGER UNIQUE NOT NULL,
+            city_id INTEGER NOT NULL,
+            zone_number INTEGER NOT NULL,
             zone_name TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            latitude REAL,
+            longitude REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (city_id) REFERENCES cities(id),
+            UNIQUE(city_id, zone_number)
         )
+    ''')
+    
+    # Create index for zone lookup by city
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_zones_city ON zones(city_id)
     ''')
     
     # ====================
@@ -39,12 +70,20 @@ def init_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS circles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            zone_id INTEGER NOT NULL,
             circle_number INTEGER NOT NULL,
             circle_name TEXT NOT NULL,
-            zone_id INTEGER NOT NULL,
+            latitude REAL,
+            longitude REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (zone_id) REFERENCES zones(id)
+            FOREIGN KEY (zone_id) REFERENCES zones(id),
+            UNIQUE(zone_id, circle_number)
         )
+    ''')
+    
+    # Create index for circle lookup by zone
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_circles_zone ON circles(zone_id)
     ''')
     
     # ====================
@@ -53,19 +92,29 @@ def init_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS areas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            zone_id INTEGER NOT NULL,
+            circle_id INTEGER NOT NULL,
             area_name TEXT NOT NULL,
             ward_number INTEGER,
-            circle_id INTEGER NOT NULL,
-            zone_id INTEGER NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            area_type TEXT DEFAULT 'residential',
+            population INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (circle_id) REFERENCES circles(id),
-            FOREIGN KEY (zone_id) REFERENCES zones(id)
+            FOREIGN KEY (zone_id) REFERENCES zones(id),
+            FOREIGN KEY (circle_id) REFERENCES circles(id)
         )
     ''')
     
-    # Create index for fast area search
+    # Create indexes for fast area search and geolocation queries
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_areas_name ON areas(area_name)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_areas_zone_circle ON areas(zone_id, circle_id)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_areas_geolocation ON areas(latitude, longitude)
     ''')
     
     # ====================
@@ -92,12 +141,13 @@ def init_database():
     ''')
     
     # ====================
-    # COMPLAINTS TABLE
+    # COMPLAINTS TABLE (Enhanced)
     # ====================
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS complaints (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            complaint_id TEXT UNIQUE NOT NULL,
+            city_id INTEGER NOT NULL,
+            complaint_id TEXT NOT NULL,
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             phone TEXT,
@@ -108,14 +158,20 @@ def init_database():
             zone_id INTEGER,
             circle_id INTEGER,
             locality_name TEXT,
+            latitude REAL,
+            longitude REAL,
             category TEXT,
             criticality TEXT DEFAULT 'Non-Critical',
             status TEXT DEFAULT 'Pending' CHECK(status IN ('Pending', 'In Progress', 'Resolved')),
+            priority INTEGER DEFAULT 0,
             assigned_admin_id INTEGER,
             resolution_notes TEXT,
+            resolution_time_hours REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             resolved_at TIMESTAMP,
+            UNIQUE(city_id, complaint_id),
+            FOREIGN KEY (city_id) REFERENCES cities(id),
             FOREIGN KEY (area_id) REFERENCES areas(id),
             FOREIGN KEY (zone_id) REFERENCES zones(id),
             FOREIGN KEY (circle_id) REFERENCES circles(id),
@@ -123,7 +179,10 @@ def init_database():
         )
     ''')
     
-    # Create indexes for fast querying
+    # Create indexes for fast querying and performance optimization
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_complaints_city ON complaints(city_id)
+    ''')
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_complaints_zone ON complaints(zone_id)
     ''')
@@ -135,6 +194,15 @@ def init_database():
     ''')
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_complaints_category ON complaints(category)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_complaints_criticality ON complaints(criticality)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_complaints_created ON complaints(created_at DESC)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_complaints_geolocation ON complaints(latitude, longitude)
     ''')
     
     # ====================

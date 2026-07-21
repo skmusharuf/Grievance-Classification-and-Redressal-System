@@ -1,10 +1,33 @@
+# Flask & Web Framework
 Flask==3.0.3
 flask-cors==4.0.1
+Flask-Limiter==3.7.0
 python-dotenv==1.0.1
+gunicorn==21.2.0
 
+# Data & ML
 pandas==2.2.2
 joblib==1.4.2
 scikit-learn==1.5.1
+numpy==1.26.4
 
-google-generativeai==0.7.2
+# Translation
 googletrans==4.0.0-rc1
+
+# Database
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+
+# Caching & Performance
+redis==5.0.1
+requests==2.32.3
+
+# Geolocation
+geopy==2.4.0
+
+# Security
+bcrypt==4.1.2
+PyJWT==2.8.1
+
+# Monitoring
+python-json-logger==2.0.7
